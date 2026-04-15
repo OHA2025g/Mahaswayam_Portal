@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+frontend/build/
+dist/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+
+# Local notes with credentials
+memory/test_credentials.md
