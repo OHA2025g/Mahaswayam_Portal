@@ -32,6 +32,30 @@ JWT_ALGORITHM = "HS256"
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+def _parse_csv_urls(value: str) -> List[str]:
+    if not value or not value.strip():
+        return []
+    return [p.strip() for p in value.split(",") if p.strip()]
+
+
+def _cors_allow_origins() -> List[str]:
+    """Build allowed browser origins for credentialed API calls."""
+    origins: List[str] = []
+    for o in _parse_csv_urls(os.environ.get("FRONTEND_URL", "")):
+        if o not in origins:
+            origins.append(o)
+    for o in _parse_csv_urls(os.environ.get("CORS_ALLOWED_ORIGINS", "")):
+        if o not in origins:
+            origins.append(o)
+    if not origins:
+        origins.append("http://localhost:3000")
+    for d in ("http://localhost:3000", "http://localhost:4520"):
+        if d not in origins:
+            origins.append(d)
+    return origins
+
+
 # ── Auth helpers ──────────────────────────────────────────────
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -443,16 +467,17 @@ async def startup():
 
 app.include_router(api_router)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        os.environ.get("FRONTEND_URL", "http://localhost:3000"),
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+_cors_regex = os.environ.get("CORS_ORIGIN_REGEX", "").strip() or None
+_cors_kwargs = {
+    "allow_origins": _cors_allow_origins(),
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+if _cors_regex:
+    _cors_kwargs["allow_origin_regex"] = _cors_regex
+
+app.add_middleware(CORSMiddleware, **_cors_kwargs)
 
 @app.on_event("shutdown")
 async def shutdown():
