@@ -9,6 +9,7 @@ import logging
 import random
 import math
 from pathlib import Path
+from urllib.parse import urlparse
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -39,15 +40,28 @@ def _parse_csv_urls(value: str) -> List[str]:
     return [p.strip() for p in value.split(",") if p.strip()]
 
 
+def _normalize_origin(origin: str) -> str:
+    """Browser Origin header is scheme+host+port only, never a trailing slash or path."""
+    o = origin.strip().rstrip("/")
+    if not o:
+        return o
+    parsed = urlparse(o)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return o
+
+
 def _cors_allow_origins() -> List[str]:
     """Build allowed browser origins for credentialed API calls."""
     origins: List[str] = []
     for o in _parse_csv_urls(os.environ.get("FRONTEND_URL", "")):
-        if o not in origins:
-            origins.append(o)
+        n = _normalize_origin(o)
+        if n and n not in origins:
+            origins.append(n)
     for o in _parse_csv_urls(os.environ.get("CORS_ALLOWED_ORIGINS", "")):
-        if o not in origins:
-            origins.append(o)
+        n = _normalize_origin(o)
+        if n and n not in origins:
+            origins.append(n)
     if not origins:
         origins.append("http://localhost:3000")
     for d in ("http://localhost:3000", "http://localhost:4520"):
